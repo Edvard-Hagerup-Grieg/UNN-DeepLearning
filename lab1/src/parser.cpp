@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream> 
-#include "parser.h"
+#include <algorithm>
 
 using namespace std;
 
@@ -17,7 +17,7 @@ int reverseInt(int i)
 	return ((int)c1 << 24) + ((int)c2 << 16) + ((int)c3 << 8) + (int)c4;
 }
 
-double* read_mnist_images(string path)
+double* read_mnist_images(string path, int number_of_images_)
 {
 	ifstream file(path, ios::binary);
 	if (file.is_open())
@@ -26,12 +26,17 @@ double* read_mnist_images(string path)
 		int number_of_images = 0;
 		int n_rows = 0;
 		int n_cols = 0;
+
 		file.read((char*)& magic_number, sizeof(magic_number));
 		magic_number = reverseInt(magic_number);
+
 		file.read((char*)& number_of_images, sizeof(number_of_images));
 		number_of_images = reverseInt(number_of_images);
+		number_of_images = min(number_of_images, number_of_images_);
+
 		file.read((char*)& n_rows, sizeof(n_rows));
 		n_rows = reverseInt(n_rows);
+
 		file.read((char*)& n_cols, sizeof(n_cols));
 		n_cols = reverseInt(n_cols);
 	
@@ -51,7 +56,7 @@ double* read_mnist_images(string path)
 	return NULL;
 }
 
-int* read_mnist_labels(string path)
+int* read_mnist_labels(string path, int number_of_labels_)
 {
 	ifstream file(path);
 	if (file.is_open())
@@ -64,6 +69,7 @@ int* read_mnist_labels(string path)
 
 		file.read((char *)&number_of_labels, sizeof(number_of_labels));
 		number_of_labels = reverseInt(number_of_labels);
+		number_of_labels = min(number_of_labels, number_of_labels_);
 
 		int* labels = new int[number_of_labels * 10];
 		for (int i = 0; i < number_of_labels; i++) 
@@ -78,4 +84,26 @@ int* read_mnist_labels(string path)
 		return labels;
 	}
 	return NULL;
+}
+
+void head(double* dataset, int* labels, int start)
+{
+	for (int k = start; k < start + 5; k++)
+	{
+		int l = 0;
+		for (int n = 0; n < 10; n++)
+			if (labels[k * 10 + n] == 1)
+				l = n;
+		cout << "\nLABEL: " << l << endl;
+
+		for (int i = 0; i < 28; i++)
+		{
+			for (int j = 0; j < 28; j++)
+				if (dataset[k * 784 + i * 28 + j] > 0)
+					cout << 1 << " ";
+				else
+					cout << 0 << " ";
+			cout << endl;
+		}
+	}
 }
