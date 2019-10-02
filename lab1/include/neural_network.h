@@ -17,7 +17,7 @@ public:
 	double phi_1(double x);
 	void phi_2(double* x, int n);
 	
-	void fit(double* x, int* y, const int L, int iter, double eta);
+	void fit(double* x, int* y, const int L, int batch_size, int iter, double eta);
 	void predict(double* x, int* y, int L);
 };
 

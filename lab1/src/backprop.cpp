@@ -3,128 +3,102 @@
 #include "neural_network.h"  
 
 
-double phi_1(double x)
+void backprop_step(neural_network *nn, double *x, int* y, double eta, int L)
 {
-	return x;
-}
 
-void fit(double* x, int* y, const int L, int ITER, double eta)
-{
-	const int batch_size = 1;
-	const int N = 784;
-	const int K = 5;
-	const int M = 10;
+	//head(x, y, 0, 1);
 
-	double* w_1 = new double[K * N];
-	double* w_2 = new double[M * K];
+	int N = nn->N;
+	int K = nn->K;
+	int M = nn->M;
+
+	double err = 0.0, acc = 0.0;
+
+	double* v = new double[L * K];
+	double* u = new double[L * M];
 
 	double* dE_1 = new double[K * N];
 	double* dE_2 = new double[M * K];
 
-	double* v = new double[K];
-	double* u = new double[M];
-
-	//начальная инициализация весов
-	for (int k = 0; k < K; k++)
+	for (int l = 0; l < L; l++)
 	{
-		//cout << "\nw_1[" << k << "] : ";
-		for (int n = 0; n < N; n++)
-		{
-			w_1[k * N + n] = ((double)rand() / (RAND_MAX)) / 10.0;
-			//cout << w_1[k * N + n] << " ";
-		}
-		//cout << endl;
-	}
 
-	for (int m = 0; m < M; m++)
-	{
-		//cout << "\nw_2[" << m << "] : ";
+		//forward pass
 		for (int k = 0; k < K; k++)
 		{
-			w_2[m * K + k] = ((double)rand() / (RAND_MAX)) / 10.0;
-			//cout << w_2[m * K + k] << " ";
+			double SUM_1 = 0.0;
+			for (int n = 0; n < N; n++)
+				SUM_1 += x[l * N + n] * nn->w_1[k * N + n];
+			v[l * K + k] = nn->phi_1(SUM_1);
 		}
-		//cout << endl;
-	}
 
-
-	for (int i = 0; i < ITER; i++)
-	{
-		for (int l = 0; l < L / batch_size; l++)
+		double max_v = 0.0;
+		double sum_exp = 0.0;
+		double *SUM_2 = new double[M];
+		for (int m = 0; m < M; m++)
 		{
-			for (int ll = 0; ll < batch_size; ll++)
-			{
+			SUM_2[m] = 0.0;
+			for (int k = 0; k < K; k++)
+				SUM_2[m] += v[l * K + k] * nn->w_2[m * K + k];
 
-				if ((y[(l * batch_size + ll) * M + 1] == 1))
-					cout << "\nLABEL: 1\n";
-				else if ((y[(l * batch_size + ll) * M + 5] == 1))
-					cout << "\nLABEL: 5\n";
-				else continue;
-
-				double E = 0.0;
-
-				//прямой ход
-				cout << "\nv[k] : ";
-				for (int k = 0; k < K; k++)
-				{
-					double SUM_1 = 0.0;
-					for (int n = 0; n < N; n++)
-						SUM_1 += x[(l * batch_size + ll) * N + n] * w_1[k * N + n];
-					v[k] = phi_1(SUM_1);
-					cout << v[k] << " ";
-				}
-
-				double SUM_EXP = 0.0;
-				cout << "\nSUM_2 : ";
-				for (int m = 0; m < M; m++)
-				{
-					double SUM_2 = 0.0;
-					for (int k = 0; k < K; k++)
-						SUM_2 += v[k] * w_2[m * K + k];
-					SUM_EXP += exp(SUM_2);
-					u[m] = SUM_2;
-					cout << u[m] << " ";
-				}
-				cout << "\nSUM_EXP = " << SUM_EXP;
-				cout << "\nu[m] : ";
-				for (int m = 0; m < M; m++)
-				{
-					E -= y[l * 10 + m] * (u[m] - log(SUM_EXP));
-					u[m] = exp(u[m]) / SUM_EXP;
-					cout << u[m] << " ";
-				}
-				cout << "\nE = " << E;
-
-				//обратный ход
-				for (int m = 0; m < M; m++)
-				{
-					//cout << "\nw_2[" << m << "] : ";
-					for (int k = 0; k < K; k++)
-					{
-						dE_2[m * K + k] = -y[(l * batch_size + ll) * M + m] * (1.0 - u[m]) * v[k];
-						w_2[m * K + k] -= eta * dE_2[m * K + k];
-						//cout << w_2[m * K + k] << " ";
-					}
-					//cout << endl;
-				}
-
-				for (int k = 0; k < K; k++)
-				{
-					//cout << "\nw_1[" << k << "] : ";
-					for (int n = 0; n < N; n++)
-					{
-						dE_1[k * N + n] = 0.0;
-						for (int m = 0; m < M; m++)
-							dE_1[k * N + n] -= y[(l * batch_size + ll) * M + m] * (1.0 - u[m]) * w_2[m * K + k] * 1.0 * x[(l * batch_size + ll) * N + n];
-						w_1[k * N + n] -= eta * dE_1[k * N + n];
-						//cout << w_1[k * N + n] << " ";
-					}
-					//cout << endl;
-				}
-			}
-			
-
+			if (SUM_2[m] > max_v)
+				max_v = SUM_2[m];
 		}
+
+		for (int m = 0; m < M; m++)
+		{
+			sum_exp += exp(SUM_2[m] - max_v);
+			u[l * M + m] = exp(SUM_2[m] - max_v);
+		}
+
+		double max_u = 0.0;
+		int ans = 0, true_ans = 0;
+		for (int m = 0; m < M; m++)
+		{
+			u[l * M + m] = u[l * M + m] / sum_exp;
+
+			if (u[l * M + m] != 0)
+				err -= y[l * M + m] * log(u[l * M + m]);
+			if (u[l * M + m] > max_u)
+			{
+				max_u = u[l * M + m];
+				ans = m;
+			}
+			if (y[l * M + m] == 1)
+				true_ans = m;
+		}
+		if (ans == true_ans)
+			acc += 1.0;
+
+
+		//reverse pass
+		for (int k = 0; k < K; k++)
+			for (int m = 0; m < M; m++)
+			{
+				dE_2[m * K + k] = 0.0;
+				for (int i = 0; i < M; i++)
+					if (i != m)
+						dE_2[m * K + k] += y[l * M + i] * u[l * M + i] * v[l * K + k];
+				dE_2[m * K + k] *= (1.0 - u[l * M + m]);
+			}
+
+		for (int k = 0; k < K; k++)
+			for (int n = 0; n < N; n++)
+			{
+				dE_1[k * N + n] = 0.0;
+				for (int m = 0; m < M; m++)
+					dE_1[k * N + n] -= y[l * M + m] * (1.0 - u[l * M + m]) * nn->w_2[m * K + k] * 1.0 * x[l * N + n];
+			}
 	}
 
+	//update the weights
+	for (int m = 0; m < M; m++)
+		for (int k = 0; k < K; k++)
+			nn->w_2[m * K + k] -= eta * dE_2[m * K + k] / (double)L;
+
+	for (int k = 0; k < K; k++)
+		for (int n = 0; n < N; n++)
+			nn->w_1[k * N + n] -= eta * dE_1[k * N + n] / (double)L;
+
+	cout << "err = " << err / (double)L << "\tacc = " << acc / (double)L << endl;
 }

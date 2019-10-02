@@ -2,8 +2,7 @@
 #define BACKPROP_H
 
 
-double phi_1(double x);
-void fit(double* x, int* y, const int L, int ITER, double eta);
+void backprop_step(neural_network *nn, double *x, int* y, double eta, int L);
 
 
 #endif

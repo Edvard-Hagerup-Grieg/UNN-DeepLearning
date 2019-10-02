@@ -86,9 +86,9 @@ int* read_mnist_labels(string path, int number_of_labels_)
 	return NULL;
 }
 
-void head(double* dataset, int* labels, int start)
+void head(double* dataset, int* labels, int start, int num)
 {
-	for (int k = start; k < start + 5; k++)
+	for (int k = start; k < start + num; k++)
 	{
 		int l = 0;
 		for (int n = 0; n < 10; n++)
