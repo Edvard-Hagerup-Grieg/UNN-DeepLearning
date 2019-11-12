@@ -1,5 +1,6 @@
 from keras.utils import to_categorical
 from keras.datasets import mnist
+import matplotlib.pyplot as plt
 import numpy as np
 import time
 
@@ -61,16 +62,18 @@ class NeuralNetwork(object):
         return err / batch_size, acc / batch_size
 
 
-    def fit(self, X, Y, x_test, y_test, batch_size=1, iter=100, eta=0.01, validation_split=0.0):
+    def fit(self, X, Y, batch_size=1, iter=100, eta=0.01, x_test=None, y_test=None):
 
-        #x_train = X[:X.shape[0](1.0 - validation_split), :]
-
+        Err_train = []
+        Acc_train = []
+        Err_test = []
+        Acc_test = []
         for it in np.arange(iter):
             print("\nepoch %s/%s" % (it + 1, iter))
 
             Acc = []
             Err = []
-            for l in np.arange(batch_size, X.shape[0], batch_size):
+            for l in np.arange(batch_size, X.shape[0] + 1, batch_size):
                 y = Y[l - batch_size:l, :]
                 x = X[l - batch_size:l, :]
 
@@ -82,8 +85,8 @@ class NeuralNetwork(object):
                 u = self.phi_2(u)
 
                 err, acc = self.get_metrics(u, y)
-                Acc.append(acc)
                 Err.append(err)
+                Acc.append(acc)
 
                 print("\rbatch %s/%s" % (l, X.shape[0]), end='')
 
@@ -104,17 +107,45 @@ class NeuralNetwork(object):
                 self.bias1 -= eta * dE_bias1
                 self.bias2 -= eta * dE_bias2
 
+            err_batch = np.sum(Err) * batch_size / X.shape[0]
+            acc_batch = np.sum(Acc) * batch_size / X.shape[0]
+            Err_train.append(err_batch)
+            Acc_train.append(acc_batch)
 
-            print("\nTrain: err = %f\tacc = %f" % (np.sum(Err) * batch_size / X.shape[0],
-                                                   np.sum(Acc) * batch_size / X.shape[0]), end='\n')
+            print("\nTrain: err = %f\tacc = %f" % (err_batch, acc_batch), end='\n')
 
-            y_predict = self.predict(x_test)
-            err, acc = self.get_metrics(y_predict, y_test)
+            if x_test is not None and y_test is not None:
+                y_predict = self.predict(x_test)
+                err, acc = self.get_metrics(y_predict, y_test)
 
-            print("Test: err = %f, acc = %f" % (err, acc))
+                Err_test.append(err)
+                Acc_test.append(acc)
+
+                print("Test: err = %f, acc = %f" % (err, acc))
+
+        return {"err":Err_train, "acc":Acc_train, "err_test":Err_test, "acc_test":Acc_test}
 
 
-if __name__ == "__main__":
+def history_plot(history):
+    legend = ["training error", "training accuracy"]
+    t = np.arange(1, len(history["err"]) + 1, 1)
+
+    plt.clf()
+    plt.plot(t, history["err"], color="red")
+    plt.plot(t, history["acc"], color="blue")
+
+    if len(history["err_test"]) > 0:
+        legend += ["test error", "test accuracy"]
+        plt.plot(t, history["err_test"], color="red", ls="--")
+        plt.plot(t, history["acc_test"], color="blue", ls="--")
+
+    plt.xticks(t)
+    plt.xlabel("Epoch")
+    plt.ylabel("Err, Acc")
+    plt.legend(legend)
+    plt.show()
+
+def get_dataset_MNIST():
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
     x_train = x_train.reshape(60000, 784)
@@ -127,11 +158,34 @@ if __name__ == "__main__":
     y_train = to_categorical(y_train, 10)
     y_test = to_categorical(y_test, 10)
 
-    print(x_train.shape)
-    print(y_train.shape)
+    return (x_train, y_train), (x_test, y_test)
 
-    model = NeuralNetwork()
+def experiment_run(K, eta, iter, batch_size):
+    (x_train, y_train), (x_test, y_test) = get_dataset_MNIST()
+
+    model = NeuralNetwork(K=K)
     start_time = time.time()
-    model.fit(X=x_train, Y=y_train, x_test=x_test, y_test=y_test, iter=20, batch_size=100, eta=0.1)
+    history = model.fit(X=x_train, Y=y_train, x_test=x_test, y_test=y_test, iter=iter, batch_size=batch_size, eta=eta)
     finish_time = time.time()
-    print("Time: %s" % (finish_time - start_time))
+
+    y_predict = model.predict(x_test)
+    err, acc = model.get_metrics(y_predict, y_test)
+
+    print("\nTest: err = %f, acc = %f" % (err, acc))
+    print("\nTime: %s" % (finish_time - start_time))
+
+    history_plot(history)
+
+
+if __name__ == "__main__":
+
+    # ПАРАМЕТРЫ МОДЕЛИ
+    K = 30              # размер скрытого слоя
+
+    # ПАРАМЕТРЫ ОБУЧЕНИЯ
+    eta = 0.1           # скорость обучения
+    iter = 20           # количество эпох обучения
+    batch_size = 100    # размер батча
+
+
+    experiment_run(K=K, eta=eta, iter=iter, batch_size=batch_size)
